@@ -1,5 +1,5 @@
 -- Block.exe
--- by PicOS
+-- by PicoDeck
 
 -- Game state
 local game_state = "playing" -- "playing", "gameover"

@@ -17,14 +17,14 @@ jobs:
 
       - name: Package
         run: |
-          rm -f picos-blockexe-*.zip
-          zip -9 "picos-blockexe-${GITHUB_REF_NAME//\//-}.zip" app.json main.lua background01.mp3
+          rm -f picodeck-blockexe-*.zip
+          zip -9 "picodeck-blockexe-${GITHUB_REF_NAME//\//-}.zip" app.json main.lua background01.mp3
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: picos-blockexe
-          path: picos-blockexe-*.zip
+          name: picodeck-blockexe
+          path: picodeck-blockexe-*.zip
 
       - name: Check app.json version matches the tag
         if: startsWith(github.ref, 'refs/tags/v')
@@ -40,5 +40,5 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: picos-blockexe-*.zip
+          files: picodeck-blockexe-*.zip
           generate_release_notes: true

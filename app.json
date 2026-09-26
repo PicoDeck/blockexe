@@ -1,10 +1,10 @@
 {
-    "id": "com.picos.blockexe",
+    "id": "net.picodeck.blockexe",
     "name": "block.exe",
     "description": "A Tetris clone with neon graphics",
-    "author": "PicOS",
-    "version": "1.0.1",
+    "author": "PicoDeck",
+    "version": "1.0.2",
     "category": "games",
     "min_firmware": "0.1.0",
-    "homepage": "https://github.com/jeffory/picos-blockexe"
+    "homepage": "https://github.com/PicoDeck/blockexe"
 }
