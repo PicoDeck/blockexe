@@ -18,7 +18,7 @@ jobs:
       - name: Package
         run: |
           rm -f picodeck-blockexe-*.zip
-          zip -9 "picodeck-blockexe-${GITHUB_REF_NAME//\//-}.zip" app.json main.lua background01.mp3
+          zip -9 "picodeck-blockexe-${GITHUB_REF_NAME//\//-}.zip" app.json main.lua background01.mp3 icon.png
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
