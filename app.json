@@ -3,7 +3,7 @@
     "name": "block.exe",
     "description": "A Tetrimino game with neon graphics",
     "author": "PicoDeck",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "category": "games",
     "min_firmware": "0.1.0",
     "homepage": "https://github.com/PicoDeck/blockexe"
