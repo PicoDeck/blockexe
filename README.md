@@ -1,6 +1,6 @@
 # block.exe
 
-A Tetris-style falling-block game for the [ClockworkPi PicoCalc](https://www.clockworkpi.com/),
+A Tetrimino game for the [ClockworkPi PicoCalc](https://www.clockworkpi.com/),
 with neon graphics and a background music track. Written for [PicoDeck](https://github.com/PicoDeck/picodeck).
 
 ## Install
