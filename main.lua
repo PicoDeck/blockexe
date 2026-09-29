@@ -423,7 +423,6 @@ while true do
         draw_gameover()
     end
 
-    pc.perf.drawFPS() 
     pc.display.flush()
     pc.perf.endFrame()
 
