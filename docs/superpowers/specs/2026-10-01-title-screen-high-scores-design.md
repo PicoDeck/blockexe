@@ -25,6 +25,8 @@ The handover was written before the rename and before a full check of the firmwa
 | 9 | (not covered) | If an image fails to load, the title falls back to the plain background colour and a text logo | A missing asset shouldn't crash the app. |
 | 10 | `ENTER save · ESC skip` | `ENTER SAVE   ESC SKIP` | The built-in fonts are ASCII only. |
 | 11 | Logo text depends on the final name | `BLOCK.EXE`, confirmed when you review the logo preview | The rename didn't change the app's name. |
+| 12 | Tagline *A CYBERPUNK TETRIS CLONE* | *A CYBERPUNK TETRIMINO GAME* | It matches the description changed in `cf09379`, which dropped "Tetris". |
+| 13 | Check fps with the game's own `pc.perf.drawFPS()` | Check fps with the OS's *Settings → Show FPS* | v1.0.5 removed the in-game counter. PicoDeck 0.5.0 shows one for every app, counting `pc.perf.endFrame()` ticks. |
 
 ## Screens and flow
 
@@ -134,7 +136,7 @@ Drawn back to front every frame:
    - A piece that leaves the bottom starts again above the top at a random x.
 4. **Logo:**
    - `logo.png`, centred at y=18, drawn with `logo:setTransparentColor(0x07E0)`.
-   - Underneath: *A CYBERPUNK TETRIS CLONE* in `FONT_6X8`.
+   - Underneath: *A CYBERPUNK TETRIMINO GAME* in `FONT_6X8`.
    - If the logo failed to load, draw `BLOCK.EXE` in `FONT_8X12` instead.
 5. **Score panel:**
    - Covers y=110–190: `C.PANEL` fill with a `C.BORDER` border.
@@ -145,7 +147,9 @@ Drawn back to front every frame:
    - Covers y=220–280 in `FONT_8X12`, centred: *START*, *MUSIC: ON* or *MUSIC: OFF*, *QUIT*.
    - Up and Down move the selection and wrap around. The selected item has a `>` in front and is drawn in `C.WHITE`; the others use `C.DIM`.
    - Enter chooses the selected item. Esc returns `"quit"`.
-7. **FPS counter and fonts:** `pc.perf.drawFPS()`, as on every screen. The font is set explicitly with `pc.display.setFont` before each block of text, because the font setting is global. It's set back to `FONT_6X8` before the game draws.
+7. **Fonts:** the font is set explicitly with `pc.display.setFont` before each block of text, because the font setting is global. It's set back to `FONT_6X8` before the game draws.
+
+- **Frame timing:** every screen runs inside the existing `pc.perf.beginFrame()` / `pc.perf.endFrame()` loop, which the OS's Show FPS counter relies on. The app doesn't draw its own counter.
 
 - **Text:** always drawn with `bg=false` so it's transparent over the art.
 - **Idle dimming:** the OS dims the screen after 60 s idle and swallows the key that wakes it. That's acceptable on a menu, and the app doesn't call `resetIdleTimer`.
@@ -171,7 +175,7 @@ Drawn back to front every frame:
 
 ## Performance and memory
 
-- **Speed target:** the title runs at 30 fps or more on the device, measured with `pc.perf.drawFPS()`. If it's too slow, cut the rain and falling pieces first.
+- **Speed target:** the title runs at 30 fps or more on the device, measured with *Settings → Show FPS* (PicoDeck 0.5.0 or later). If it's too slow, cut the rain and falling pieces first.
 - **Memory:** the background takes 200 KB of PSRAM and the logo about 23 KB. Both are loaded once and kept, because re-decoding a PNG on every title visit would be slower than keeping 200 KB.
 - **Music cost:** MP3 decoding runs on Core 1 but slows Core 0 frames too. It's already running today, so the fps target is measured with music on.
 
@@ -207,7 +211,7 @@ Cases:
 - Take a screenshot of each screen for visual review.
 
 **Device:**
-- The title runs at 30 fps or more.
+- The title runs at 30 fps or more, with Show FPS turned on.
 - The colours match the simulator.
 - Scores and the last name survive a reboot.
 
