@@ -4,6 +4,7 @@
 **Repo state when written:** `main` at `e323a2f` (v1.0.1). The whole game is a 435-line `main.lua`.
 **Status:**
 - **Part A (title screen + high scores):** design agreed with the user, but implementation is **on hold until the big rename lands**. Nothing has been implemented.
+  - **Update 2026-10-01:** the rename has landed and the user approved A3. Part A continues in `docs/superpowers/specs/2026-10-01-title-screen-high-scores-design.md`, which replaces this part of the handover.
 - **Part B (adaptive music):** researched only. The design brainstorm hasn't started.
 
 > **The rename comes first.** Every name in this document is a pre-rename name: `block.exe`, `com.picos.blockexe`,
