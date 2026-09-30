@@ -14,11 +14,12 @@ The handover was written before the rename and before a full check of the firmwa
 
 | # | Handover said | Spec says | Why |
 |---|---|---|---|
-| 1 | `min_firmware` stays `0.1.0`, to be checked | `min_firmware: "0.2.0"` | Per-app save files (`/data/<id>/saves/`) and `pc.input.pollEvent` arrived in 0.2.0. On 0.1.0, `pc.game.save` writes to a `/saves/` folder that every app shares. |
+| 1 | `min_firmware` stays `0.1.0`, to be checked | `min_firmware: "0.5.0"` | QOA playback in the FilePlayer (row 5) and native `require` arrived in 0.5.0. Per-app save files and `pc.input.pollEvent` arrived in 0.2.0; on 0.1.0, `pc.game.save` writes to a `/saves/` folder that every app shares. |
 | 2 | Read every pending character with `getChar()` each frame | Read characters with `pc.input.pollEvent()` | `getChar()` returns the same character until the next `update()`, so looping over it never ends. `pollEvent()` returns each queued event once, in order. |
 | 3 | `"\b"` **or** `BTN_BACKSPACE` deletes | Backspace and Enter come only from character events. Esc comes from `BTN_ESC`. | One key press produces both a character and a button edge, so reading both would delete two characters. |
 | 4 | Colour key 0 means "no key" | 0 means "use the global key". The app calls `pc.graphics.setTransparentColor(0)` at startup. | The global key isn't reset between apps. A key left by the previous app could punch holes in the background. |
-| 5 | Music "keeps looping, as it does today" | Fix it: `music_player:play(0)` | `play()` with no argument plays once and turns looping off, so the track currently stops after one play. |
+| 5 | `background01.mp3` "keeps looping, as it does today" through the MP3 player | The same track converted to QOA (`assets/background01.qoa`) and played through `pc.sound.fileplayer()` with `play(0)` | The PicoDeck docs measured 22.05 kHz MP3 making every frame 1.24× (mono) to 2.1× (44.1 kHz stereo) slower. QOA costs 2.4–5.3%. The QOA file is only 11% bigger (2.39 MB against 2.15 MB). This also fixes a bug: `play()` with no argument plays the MP3 once, so the music currently stops after one play. |
+| 5a | The `require` shim from nonogram | The firmware's native `require` | Built in since 0.5.0, which is now the minimum. The shim would be dead code. |
 | 6 | Trailing spaces trimmed | Leading and trailing spaces trimmed | A leading space would push the name out of line in the score table. |
 | 7 | `gameover` → `name_entry` | `playing` goes straight to `gameover` or `name_entry` | The two screens are alternatives, not steps in a sequence. |
 | 8 | "Dimmed" board | `pc.display.applyEffect("darken", 96)` over the whole frame, then the panel | This runs in hardware over the whole framebuffer, so it's cheap. |
@@ -46,24 +47,28 @@ launch ─► title ─START─► playing ─top out, top 3─► name_entry �
   - Callbacks run at an arbitrary point in the Lua code, so each one only sets a flag: `pending_new_game` or `pending_music_toggle`.
   - The main loop handles both flags at the top of the next frame.
   - *New Game* starts a fresh game from any screen. An unsaved name entry is dropped.
-- **Music:** `background01.mp3` loops on every screen (`play(0)`). The title's *MUSIC* item and the F10 item share one `music_enabled` flag through one `set_music(on)` function. That function pauses or resumes the player and rebuilds the F10 menu, so both labels always agree. As today, the setting isn't saved between launches.
+- **Music:**
+  - `music = pc.sound.fileplayer()`, `music:load(APP_DIR .. "/assets/background01.qoa")`, `music:play(0)`. It loops on every screen.
+  - The player is kept in a variable for the whole run, because a collected player stops.
+  - A failed `load` returns `nil, err`. It's logged, and the game runs silently.
+  - The title's *MUSIC* item and the F10 item share one `music_enabled` flag through one `set_music(on)` function. That function pauses or resumes the player and rebuilds the F10 menu, so both labels always agree. As today, the setting isn't saved between launches.
 - **Every state change** calls `pc.input.clearState()`. This clears button edges, the `pollEvent` queue and the `getChar` backlog, so a key press can't carry over from one screen to the next.
 
 ## Files
 
-All Lua modules are loaded with the `require` shim from `picodeck/apps/nonogram/main.lua:20-37`. The shim is a global `require` built on `pc.fs.readFile` and `load`, with paths under `APP_DIR`.
-- Firmware 0.5.0+ has a native `require`, but the shim replaces it, so the same loader runs on every firmware from 0.2.0 up.
-- Modules don't see `main.lua`'s locals, so each one starts with `local pc = picocalc`.
+Modules are loaded with the firmware's native `require` (0.5.0+). It looks up `require("title")` as `<APP_DIR>/title.lua`, and caches each module per app. Modules don't see `main.lua`'s locals, so each one starts with `local pc = picocalc`.
 
 | File | Responsibility | Depends on |
 |---|---|---|
-| `main.lua` | The state machine (`title`, `playing`, `gameover`, `name_entry`), the existing game logic, music, the F10 menu, the `require` shim and startup | all modules |
+| `main.lua` | The state machine (`title`, `playing`, `gameover`, `name_entry`), the existing game logic, music, the F10 menu and startup | all modules |
 | `theme.lua` | Returns `{ C = colours, TETROMINOES = shapes }`, moved out of `main.lua` without changes, plus the title colours below | `pc.display.rgb` |
 | `highscores.lua` | Score-table logic and saving. No drawing and no input. | `picocalc.game.save`, looked up when called so tests can stub it |
 | `title.lua` | Title animation, drawing and menu input | `theme`, `highscores` entries passed in |
 | `name_entry.lua` | The game-over and name-entry panels: the name buffer, keyboard input, the 400 ms input lock and drawing | `theme`, `highscores` (name rules) |
 | `assets/title_bg.png` | 320×320 background, fully opaque | — |
 | `assets/logo.png` | Logo of about 240×48 on a pure-green key background `(0,255,0)` = RGB565 `0x07E0`, no alpha channel | — |
+| `assets/background01.qoa` | The music: `qoaconv background01.mp3 assets/background01.qoa` (22.05 kHz stereo, same as the MP3) | — |
+| `background01.mp3` | Stays in the repo as the source for the QOA file, but is no longer packaged | — |
 | `tests/highscores_test.lua` | Host tests for `highscores.lua` | host `lua` 5.4 |
 
 New colours in `theme.C`:
@@ -177,7 +182,7 @@ Drawn back to front every frame:
 
 - **Speed target:** the title runs at 30 fps or more on the device, measured with *Settings → Show FPS* (PicoDeck 0.5.0 or later). If it's too slow, cut the rain and falling pieces first.
 - **Memory:** the background takes 200 KB of PSRAM and the logo about 23 KB. Both are loaded once and kept, because re-decoding a PNG on every title visit would be slower than keeping 200 KB.
-- **Music cost:** MP3 decoding runs on Core 1 but slows Core 0 frames too. It's already running today, so the fps target is measured with music on.
+- **Music cost:** QOA decodes on Core 1 a chunk at a time, and the PicoDeck docs measured it at 2.4–5.3% of frame time. The MP3 it replaces made frames 1.24×–2.1× slower. The fps target is measured with the music on.
 
 ## Testing
 
@@ -207,7 +212,7 @@ Cases:
 - Esc on the title exits.
 - F10 *New Game* works from the title and from name entry.
 - F10 music toggle and the title's *MUSIC* item stay in sync.
-- The music loops past the end of the track.
+- The music loops past the end of the track (134 s), and keeps playing across every screen change.
 - Take a screenshot of each screen for visual review.
 
 **Device:**
@@ -231,15 +236,16 @@ Cases:
 
 ## Packaging and release
 
-- **CI:** `.github/workflows/build.yml` packages `app.json main.lua theme.lua highscores.lua title.lua name_entry.lua background01.mp3 icon.png` plus `assets/` (recursively), and leaves out `tests/` and `docs/`.
+- **CI:** `.github/workflows/build.yml` packages `app.json main.lua theme.lua highscores.lua title.lua name_entry.lua icon.png` plus `assets/` (recursively), and leaves out `background01.mp3`, `tests/` and `docs/`.
+- **README Build section:** records the `qoaconv` command that regenerates the music.
 - **README:** the install file list names every packaged file and folder.
-- **`app.json`:** `version` becomes `1.1.0` and `min_firmware` becomes `0.2.0` when releasing.
+- **`app.json`:** `version` becomes `1.1.0` and `min_firmware` becomes `0.5.0` when releasing.
 
 ## Out of scope
 
 - Adaptive music: Part B of the handover, which needs its own brainstorm.
-- Sound effects: the MP3 player and the sample mixer conflict on hardware.
+- Sound effects. They've been possible since PicoDeck 0.5.0: tones, up to 8 sample players and one stream (the music) all go through one mixer. They're left out because this feature didn't ask for them, and game-event sounds overlap with the adaptive music in Part B.
 - Saving the music setting between launches.
 - **PicoDeck firmware issues found (not fixed here):**
-  - `develop` builds report `0.1.0-N` because release tags aren't ancestors of `develop`, so the Store refuses `min_firmware ≥ 0.2.0` on those builds. Install with `push_app` instead.
+  - `develop` builds report `0.1.0-N` because release tags aren't ancestors of `develop`, so the Store refuses any `min_firmware` above 0.1.0 on those builds, including this app's 0.5.0. Install with `push_app` instead.
   - The global colour key isn't reset between apps.

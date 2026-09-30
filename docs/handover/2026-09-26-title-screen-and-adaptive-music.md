@@ -156,6 +156,13 @@ should be mostly free for this.
   - Only native apps can register a Core 1 callback, with `api->sys->setAudioCallback`. It runs every 1 ms, although `sdk/native/os.h:213-216` says 5 ms.
 
 ### Audio facts that shape any design
+
+> **Update 2026-10-01: PicoDeck 0.5.0 (released 2026-09-29) changed the audio stack.** Several facts below are now wrong. Check `picodeck/docs/API-Audio-and-Sound.md` before the music brainstorm.
+> - **One mixer** sums tones, up to 8 SamplePlayers, the MP3 player and one PCM stream (FilePlayer, MOD or `pushSamples`, one at a time). **MP3 and sound effects now play together on hardware**, and the simulator runs the same mixer.
+> - **Samples:** the 8-sample limit is gone (8 *players* remain). WAV samples still keep only the first 64 KB.
+> - **QOA ("Quite OK Audio")** streams through the FilePlayer and is the cheapest music format: 2.4–5.3% of frame time, against 1.24×–2.1× slower frames for MP3.
+> - **MP3 `play(0)` loops.** `play()` with no argument plays once.
+> - The block.exe spec switches its music to QOA (`docs/superpowers/specs/2026-10-01-title-screen-high-scores-design.md`).
 - **Output:** PWM on GP26/27 at a fixed 44.1 kHz. DMA uses two 128-frame buffers of about 2.9 ms each, and the mixer runs in DMA_IRQ_0 on Core 1 (`PicOS/src/drivers/audio.c:152-216`).
 - **What the mixer adds up:** up to 8 sample players, the square-wave tone from `pc.audio.playTone`, and **one** stream-ring producer. The producer is either Lua `pc.audio.pushSamples`, the fileplayer, or MOD. The ring stores **8 bits per channel** and holds 4096 frames.
 - **Samples:** at most 8 samples alive at once, each with at most 64 KB of PCM.
