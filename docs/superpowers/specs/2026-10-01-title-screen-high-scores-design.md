@@ -2,14 +2,14 @@
 
 **Date:** 2026-10-01
 **Status:** written for review
-**Source:** Part A of `docs/handover/2026-09-26-title-screen-and-adaptive-music.md`, where the user approved sections A1–A3. Sound effects and saved settings were added on 2026-10-01, and the user approved that design in chat. Every fact below was checked again against the PicoDeck firmware source (`~/Projects/PicoDeck/picodeck`, `develop` at `094a5b9`) on 2026-10-01.
+**Source:** Part A of `docs/handover/2026-09-26-title-screen-and-adaptive-music.md`, where the user approved sections A1–A3. Sound effects and saved settings were added on 2026-10-01, and the user approved that design in chat. The same day, the user chose to generate every effect with Comfy Cloud, favouring rich sound over cost. Every fact below was checked again against the PicoDeck firmware source (`~/Projects/PicoDeck/picodeck`, `develop` at `094a5b9`) on 2026-10-01.
 
 ## Goal
 
 block.exe gets:
 - a title screen that shows the top three high scores with names
 - name entry when a game ends with a top-3 score, pre-filled with the last name used
-- synthwave sound effects for the menus and the game
+- rich synthwave sound effects for the menus and the game, generated with Comfy Cloud
 - MUSIC and SFX settings that are remembered between launches
 
 The game is currently one `main.lua` with no sound effects, and it starts playing as soon as it launches.
@@ -34,7 +34,7 @@ The handover was written before the rename and before a full check of the firmwa
 | 11 | Logo text depends on the final name | `BLOCK.EXE`, confirmed when you review the logo preview | The rename didn't change the app's name. |
 | 12 | Tagline *A CYBERPUNK TETRIS CLONE* | *A CYBERPUNK TETRIMINO GAME* | It matches the description changed in `cf09379`, which dropped "Tetris". |
 | 13 | Check fps with the game's own `pc.perf.drawFPS()` | Check fps with the OS's *Settings → Show FPS* | v1.0.5 removed the in-game counter. PicoDeck 0.5.0 shows one for every app, counting `pc.perf.endFrame()` ticks. |
-| 14 | No sound effects: MP3 and samples conflict on hardware | Synthwave sound effects for menus and gameplay, through an `sfx` module | Since 0.5.0, samples and music play through one mixer. The user asked for effects on 2026-10-01. |
+| 14 | No sound effects: MP3 and samples conflict on hardware | Synthwave sound effects for menus and gameplay, generated with Comfy Cloud and played through an `sfx` module | Since 0.5.0, samples and music play through one mixer. The user asked for effects on 2026-10-01. |
 | 15 | Menu START / MUSIC / QUIT; nothing saved; no Options item | Menu START / MUSIC / SFX / QUIT; both settings saved with `pc.config` | A second audio setting was added. `pc.config` has room for four keys and saves atomically, and only two are used. The high scores stay in `pc.game.save`. |
 
 ## Screens and flow
@@ -84,9 +84,10 @@ Modules are loaded with the firmware's native `require` (0.5.0+). It looks up `r
 | `assets/title_bg.png` | 320×320 background, fully opaque | — |
 | `assets/logo.png` | Logo of about 240×48 on a pure-green key background `(0,255,0)` = RGB565 `0x07E0`, no alpha channel | — |
 | `assets/background01.qoa` | The music: `qoaconv background01.mp3 assets/background01.qoa` (22.05 kHz stereo, same as the MP3) | — |
-| `assets/sfx/*.wav` | 14 sound effects made by `tools/gen_sfx.py`, committed | — |
+| `assets/sfx/*.wav` | The 14 finished sound effects, built by `tools/build_sfx.py` and committed | — |
 | `background01.mp3` | Stays in the repo as the source for the QOA file, but is no longer packaged | — |
-| `tools/gen_sfx.py` | Generates the sound effects, repeatably | host Python 3, standard library only |
+| `tools/sfx_src/` | The chosen Comfy Cloud generations as 22.05 kHz mono WAVs, plus `manifest.json` recording where each came from and how it's edited | — |
+| `tools/build_sfx.py` | Turns `tools/sfx_src/` into `assets/sfx/`, repeatably | host Python 3, standard library only |
 | `tests/highscores_test.lua`, `tests/sfx_test.lua` | Host tests | host `lua` 5.4 |
 
 New colours in `theme.C`:
@@ -263,35 +264,57 @@ Sounds for input a screen handles itself are played by that screen (`title.lua`,
 
 ## Sound design
 
-- **Format:**
-  - 22.05 kHz, 16-bit, mono WAV, written by `tools/gen_sfx.py` into `assets/sfx/`.
-  - Each file's PCM data is at most 64 KB (about 1.45 s), because the firmware keeps only the first 64 KB of a sample. The script fails if any file is bigger.
-- **Synthesis:**
-  - Python standard library only (`wave`, `math`, `random` with seed 42), following `picodeck/apps/guinea_pig/tools/gen_sfx.py`. Running it twice gives identical files.
-  - Saw and pulse oscillators with ±7-cent detune, attack/decay envelopes, a one-pole low-pass whose cutoff sweeps over time, a feedback echo (about 90 ms at 0.35 feedback), and noise for the thumps.
-  - Each sound is normalised to a peak of −1 dBFS, then scaled by its own gain, so the move tick sits well below a Tetris.
-- **The sounds:**
+**Style:** rich synthwave / cyberpunk: analogue-synth tones, neon glitch textures and punchy impacts.
 
-  | File | Sound |
-  |---|---|
-  | `ui_move` | Short pulse tick, ~40 ms |
-  | `ui_select` | Rising two-note saw blip, ~120 ms |
-  | `ui_back` | Falling two-note saw blip, ~120 ms |
-  | `key` | Soft tick, ~30 ms |
-  | `save` | Bright rising arpeggio, ~0.6 s |
-  | `move` | Very short quiet tick, ~25 ms |
-  | `rotate` | Pulse blip, ~50 ms |
-  | `hard_drop` | Noise-and-low-sweep thump, ~150 ms |
-  | `lock` | Soft thud, ~80 ms |
-  | `clear` | Filtered upward sweep with echo, ~0.5 s |
-  | `tetris` | Big detuned chord stab, sweep and echo, ~1.2 s |
-  | `level_up` | Rising arpeggio, ~0.5 s |
-  | `game_over` | Descending detuned saw sweep, ~0.9 s |
-  | `high_score` | Rising fanfare, ~1 s |
+**Generators.** Every effect is generated with Comfy Cloud, using two generators:
+- **Stable Audio 3 small SFX** (`stable_audio_3_small_sfx.safetensors`), an open model run as a Comfy workflow. Each candidate gets its own fixed seed, so a chosen one can be regenerated.
+- **ElevenLabs** (`elevenlabs/sound-generation`), a hosted model.
+  - Inputs: a prompt, a length of 0.5–30 s, and `prompt_influence`.
+  - It has no seed, so the downloaded file is the only copy.
 
-- **Preview:** `python3 tools/gen_sfx.py --preview <file.wav>` also writes every sound one after another, with a short gap between them, to one file for listening on the host.
-- **Approval:** the user approves the sounds before they're used.
-- **Mix:** music at volume 60 and effects at 90. The mixer adds sources together, and a loud mix clips. The final levels are tuned by ear on the device.
+**Candidates.**
+- Up to 10 per sound, split between the two generators and written from the prompt directions below.
+- A sound shorter than a generator's minimum length is generated at that minimum, then trimmed.
+- Candidates stay out of git, in the session scratchpad.
+
+**Choosing.** The user listens to each sound's candidates and picks one. Candidates aren't tuned to the music's key, so they're judged against the music.
+
+**Fallback.** If no candidate works for a sound after 10 tries, `build_sfx.py` synthesises that sound instead, and the user approves it the same way. The synthesis follows `picodeck/apps/guinea_pig/tools/gen_sfx.py`, using only the standard library: saw and pulse oscillators with ±7-cent detune, a decay envelope, a low-pass sweep and a short echo. A fallback sound's manifest entry has a `synth` table of these parameters instead of a source file. The same edit fields apply. The synthesiser is only written if some sound needs it.
+
+**Saving the chosen sources.**
+- Each chosen candidate is converted once with ffmpeg to 22.05 kHz 16-bit mono WAV and committed as `tools/sfx_src/<sound>.wav`.
+- `tools/sfx_src/manifest.json` records, for each sound:
+  - where it came from: generator, model, prompt, negative prompt, seed, generated length and date
+  - how it's edited: `start_ms`, `length_ms`, `fade_ms` and `gain_db`
+
+**Build.** `python3 tools/build_sfx.py`, standard library only:
+- Reads the manifest, then cuts each source at `start_ms` for `length_ms` with a `fade_ms` fade-out.
+- Normalises each to a −1 dBFS peak and applies `gain_db`, so the move tick sits well below a Tetris.
+- Writes `assets/sfx/<sound>.wav` as 22.05 kHz 16-bit mono.
+- Fails if any file's PCM data is over 64 KB (about 1.45 s), because the firmware keeps only the first 64 KB of a sample.
+- The same inputs give the same bytes every time.
+- `--preview <file.wav>` also writes every finished sound one after another, with a short gap between them, for listening on the host.
+
+**The sounds:**
+
+| File | Target length | Prompt direction |
+|---|---|---|
+| `ui_move` | ~40 ms | tiny soft synth UI tick, clean, retro-futuristic interface |
+| `ui_select` | ~150 ms | short bright synth confirm blip, two rising notes, 80s synthwave UI |
+| `ui_back` | ~150 ms | short synth cancel blip, two falling notes |
+| `key` | ~30 ms | very short soft digital keyboard click |
+| `save` | ~0.6 s | bright sparkling rising synth arpeggio, success jingle, synthwave |
+| `move` | ~25 ms | tiny quiet digital tick |
+| `rotate` | ~60 ms | short snappy futuristic synth blip |
+| `hard_drop` | ~250 ms | heavy punchy digital impact, sub-bass hit, cyberpunk |
+| `lock` | ~100 ms | soft muted digital thud, block snapping into place |
+| `clear` | ~0.6 s | neon laser sweep upward with shimmer and echo, synthwave |
+| `tetris` | ~1.3 s | huge synthwave chord stab with electric impact and rising sweep, echo |
+| `level_up` | ~0.6 s | rising synth arpeggio power-up, retro-futuristic |
+| `game_over` | ~1.2 s | cyberpunk power-down, descending glitchy synth sweep, system shutdown |
+| `high_score` | ~1.2 s | triumphant synthwave fanfare, bright rising chords |
+
+**Mix:** music at volume 60 and effects at 90. The mixer adds sources together, and a loud mix clips. The final levels are tuned by ear on the device with `gain_db` and the two volumes.
 
 ## Performance and memory
 
@@ -326,7 +349,7 @@ Sounds for input a screen handles itself are played by that screen (`title.lua`,
 - `on_game_over(true)` plays `high_score`, and `on_game_over(false)` plays `game_over`.
 - `ui("delete")` plays `key` at rate 0.8.
 
-`python3 tools/gen_sfx.py` asserts the size limit and writes the same bytes on every run. Check by running it twice and comparing hashes.
+`python3 tools/build_sfx.py` fails on a missing source, a manifest entry without one of the edit fields, or an output over 64 KB. It writes the same bytes on every run; check by running it twice and comparing hashes.
 
 **Simulator:** `make simulator` in `picodeck/`, then stage the app with the picodeck MCP `push_app` tool. Walk through:
 - Title → START → top out with a hard drop. Check the Enter doesn't confirm the name.
@@ -359,18 +382,23 @@ Sounds for input a screen handles itself are played by that screen (`title.lua`,
 - Opaque pixels only, on the `(0,255,0)` key colour.
 - The user approves a preview before it's used.
 
-**Sound effects:** `tools/gen_sfx.py`, as described in "Sound design". The user approves the preview before the effects are used.
+**Sound effects:**
+- Generated with Comfy Cloud and built with `tools/build_sfx.py`, as described in "Sound design".
+- The user picks each sound from its candidates and approves the full preview before the effects are used.
+- Cost isn't a constraint, and up to 10 candidates per sound is fine.
 
 **Tool setup needed:**
-- The PixelLab MCP server is configured only for the old `~/Projects/picos-blockexe` path, and must be added for this folder before the art work.
-- The simulator work needs the picodeck MCP server (`python3 tools/picodeck_mcp.py`, from `picodeck/.mcp.json`) to be reachable from this folder.
+- **PixelLab:** the MCP server is configured only for the old `~/Projects/picos-blockexe` path, and must be added for this folder before the art work.
+- **picodeck simulator:** the simulator work needs the picodeck MCP server (`python3 tools/picodeck_mcp.py`, from `picodeck/.mcp.json`) to be reachable from this folder.
+- **Comfy Cloud:** the MCP server is connected in this session. If it asks for sign-in again, run `/mcp`.
 
 ## Packaging and release
 
 - **CI:** `.github/workflows/build.yml` packages `app.json main.lua theme.lua highscores.lua sfx.lua title.lua name_entry.lua icon.png` plus `assets/` (recursively, so it includes `assets/sfx/`). It leaves out `background01.mp3`, `tools/`, `tests/` and `docs/`.
-- **README Build section:** records the `qoaconv` command that regenerates the music and the `python3 tools/gen_sfx.py` command that regenerates the effects.
+- **README Build section:** records the `qoaconv` command that regenerates the music and the `python3 tools/build_sfx.py` command that rebuilds the effects from `tools/sfx_src/`.
 - **README:** the install file list names every packaged file and folder.
 - **`app.json`:** `version` becomes `1.1.0` and `min_firmware` becomes `0.5.0` when releasing.
+- **Licence check before release:** confirm that the output terms of each generator used for a shipped sound allow it in a free public app. That's Stable Audio 3's model licence and ElevenLabs' terms for output made through Comfy Cloud. A sound whose terms don't allow it is regenerated with the other generator, or synthesised by the fallback.
 
 ## Out of scope
 
