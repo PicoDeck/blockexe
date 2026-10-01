@@ -163,4 +163,29 @@ function T.animation_runs_for_a_minute()
     title.draw({}, true, true)
 end
 
+-- With a gamepad the title moves on its D-pad, confirms on A or Enter and
+-- ignores the raw arrow keys.
+function T.gamepad_drives_the_menu()
+    local fake = stub.new({ gamepad = true })
+    local ui = {}
+    local title = stub.fresh("title", { sfx = { ui = function(n) ui[#ui + 1] = n end } })
+    title.load()
+    title.enter(nil)
+    local function tap(mask, raw)
+        fake.gp.pressed = mask
+        fake.pressed = raw or 0
+        local action = title.update(16)
+        fake.gp.pressed, fake.pressed = 0, 0
+        return action
+    end
+    eq(tap(0, picocalc.input.BTN_DOWN), nil, "the raw arrow key is not a pad button")
+    tap(0, picocalc.input.BTN_DOWN)
+    tap(fake.gp.PAD_DOWN)
+    eq(tap(fake.gp.PAD_A), "toggle_music", "A confirms the selection")
+    tap(fake.gp.PAD_UP)
+    eq(tap(0, picocalc.input.BTN_ENTER), "start", "Enter still confirms")
+    tap(fake.gp.PAD_DOWN)
+    eq(tap(fake.gp.PAD_UP, picocalc.input.BTN_ENTER), nil, "Enter is no confirm when it pressed a pad button")
+end
+
 stub.run(T)

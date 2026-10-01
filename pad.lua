@@ -6,6 +6,7 @@
 -- typing stay on picocalc.input.
 --
 --   pad.read()            -> held, pressed   masks of pad.* buttons
+--   pad.poll(now_ms)      -> this frame's game moves, see below
 --   pad.confirmed(pressed) -> A pressed, or Enter (menus), see below
 --   pad.label(btn)        -> the name of the key bound to btn, for hints
 
@@ -30,6 +31,26 @@ else
     }
     function M.read() return input.getButtons(), input.getButtonsPressed() end
     function M.label(btn) return names[btn] or "?" end
+end
+
+-- The game's moves for this frame. Left, right and the soft drop repeat while
+-- held, at most once per MOVE_DELAY_MS; rotate (Up) and the hard drop (A) are
+-- presses, so the gate must never swallow them.
+--   pad.poll(now_ms) -> { left, right, down, rotate, drop } booleans
+local MOVE_DELAY_MS = 120
+local last_move_ms = 0
+
+function M.poll(now)
+    local held, pressed = M.read()
+    local act = { rotate = pressed & M.UP ~= 0, drop = pressed & M.A ~= 0,
+                  left = false, right = false, down = false }
+    if now - last_move_ms >= MOVE_DELAY_MS then
+        act.left = held & M.LEFT ~= 0
+        act.right = not act.left and held & M.RIGHT ~= 0
+        act.down = held & M.DOWN ~= 0
+        if act.left or act.right or act.down then last_move_ms = now end
+    end
+    return act
 end
 
 -- Menus take A, or Enter as before the gamepad. Enter counts only when it

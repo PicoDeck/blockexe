@@ -17,7 +17,10 @@ local function copy(v)
     return out
 end
 
-function stub.new()
+-- opts.gamepad installs a fake picocalc.gamepad (fake.gp: held, pressed, labels
+-- by button) with PAD_* bits UP 1, DOWN 2, LEFT 4, RIGHT 8, A 16; without it
+-- the fake is firmware with no gamepad.
+function stub.new(opts)
     local fake = {
         now = 0,          -- what pc.sys.getTimeMs() returns
         logs = {},        -- pc.sys.log messages
@@ -117,6 +120,16 @@ function stub.new()
         end
         return img
     end } })
+
+    if opts and opts.gamepad then
+        local gp = { PAD_UP = 1, PAD_DOWN = 2, PAD_LEFT = 4, PAD_RIGHT = 8, PAD_A = 16,
+                     held = 0, pressed = 0, labels = {} }
+        function gp.getButtons() return gp.held end
+        function gp.getButtonsPressed() return gp.pressed end
+        function gp.getLabel(btn) return gp.labels[btn] end
+        pc.gamepad = gp
+        fake.gp = gp
+    end
 
     picocalc = pc
     APP_DIR = "/apps/blockexe"

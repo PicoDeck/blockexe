@@ -54,4 +54,45 @@ function T.enter_confirms_only_when_it_pressed_no_pad_button()
     eq(pad.confirmed(0), false)
 end
 
+function T.poll_gates_moves_but_not_rotate_or_drop()
+    local fake = stub.new({ gamepad = true })
+    local pad = stub.fresh("pad")
+    local gp = fake.gp
+    gp.held = gp.PAD_LEFT
+    local act = pad.poll(1000)
+    eq(act.left, true, "first move")
+    act = pad.poll(1050)
+    eq(act.left, false, "a second move inside the 120 ms gate")
+    gp.pressed = gp.PAD_UP | gp.PAD_A
+    act = pad.poll(1060)
+    eq(act.rotate, true, "rotate inside the gate")
+    eq(act.drop, true, "hard drop inside the gate")
+    eq(act.left, false)
+    gp.held, gp.pressed = gp.PAD_RIGHT | gp.PAD_DOWN, 0
+    act = pad.poll(1120)
+    eq(act.right, true, "after the gate")
+    eq(act.down, true)
+end
+
+function T.poll_follows_the_gamepad_not_the_keys()
+    local fake = stub.new({ gamepad = true })
+    local pad = stub.fresh("pad")
+    fake.held = picocalc.input.BTN_LEFT      -- the raw key, not a pad button
+    fake.pressed = picocalc.input.BTN_ENTER
+    local act = pad.poll(1000)
+    eq(act.left, false)
+    eq(act.drop, false, "Enter is not the hard drop with a gamepad")
+end
+
+function T.poll_without_a_gamepad_reads_the_old_keys()
+    local fake = stub.new()
+    local pad = stub.fresh("pad")
+    fake.held = picocalc.input.BTN_LEFT
+    fake.pressed = picocalc.input.BTN_UP | picocalc.input.BTN_ENTER
+    local act = pad.poll(1000)
+    eq(act.left, true)
+    eq(act.rotate, true)
+    eq(act.drop, true, "Enter hard-drops on old firmware")
+end
+
 stub.run(T)

@@ -41,8 +41,6 @@ local gravity_speed = 500 -- ms per step down
 local particles = {}
 
 -- Input handling
-local last_input_time = 0
-local input_delay = 120 -- ms between moves
 
 -- Initialize a new game
 function init_game()
@@ -197,41 +195,34 @@ end
 
 -- Handle player input
 function handle_input()
-    local now = pc.sys.getTimeMs()
-    if now - last_input_time < input_delay then return end
+    local act = pad.poll(pc.sys.getTimeMs())
 
-    local buttons, pressed = pad.read()
-    local moved = false
-
-    if buttons & pad.LEFT ~= 0 then
+    if act.left then
         current_piece.x = current_piece.x - 1
         if not is_valid_position(current_piece) then
             current_piece.x = current_piece.x + 1
         else
             sfx.on_move()
         end
-        moved = true
-    elseif buttons & pad.RIGHT ~= 0 then
+    elseif act.right then
         current_piece.x = current_piece.x + 1
         if not is_valid_position(current_piece) then
             current_piece.x = current_piece.x - 1
         else
             sfx.on_move()
         end
-        moved = true
     end
 
-    if buttons & pad.DOWN ~= 0 then
+    if act.down then
         current_piece.y = current_piece.y + 1
         if not is_valid_position(current_piece) then
             current_piece.y = current_piece.y - 1
         else
             score = score + 1 -- Small bonus for soft dropping
         end
-        moved = true
     end
 
-    if pressed & pad.UP ~= 0 then -- Rotate
+    if act.rotate then
         local old_rotation = current_piece.rotation
         current_piece.rotation = current_piece.rotation + 1
         if current_piece.rotation > #TETROMINOES[current_piece.shape_idx].rotations then
@@ -251,10 +242,9 @@ function handle_input()
             end
         end
         if current_piece.rotation ~= old_rotation then sfx.on_rotate() end
-        moved = true
     end
 
-    if pressed & pad.A ~= 0 then -- Hard drop
+    if act.drop then -- Hard drop
         while is_valid_position(current_piece) do
             current_piece.y = current_piece.y + 1
             score = score + 2 -- Small bonus for hard dropping
@@ -262,10 +252,7 @@ function handle_input()
         current_piece.y = current_piece.y - 1
         sfx.on_hard_drop()
         lock_piece()
-        moved = true
     end
-
-    if moved then last_input_time = now end
 end
 
 -- Update game logic (gravity)
