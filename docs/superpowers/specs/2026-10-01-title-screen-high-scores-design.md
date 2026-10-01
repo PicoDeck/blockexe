@@ -407,4 +407,5 @@ Sounds for input a screen handles itself are played by that screen (`title.lua`,
 - **PicoDeck firmware issues found (not fixed here):**
   - `develop` builds report `0.1.0-N` because release tags aren't ancestors of `develop`, so the Store refuses any `min_firmware` above 0.1.0 on those builds, including this app's 0.5.0. Install with `push_app` instead.
   - The global colour key isn't reset between apps.
+  - Truecolour RGB PNGs (colour type 2) decode with corrupted bottom rows in `decode_png_file`, which also ignores `PNGDecode`'s return value. Fully opaque RGBA PNGs decode cleanly, so `title_bg.png` and `logo.png` ship as RGBA with every alpha at 255. Found on 2026-10-02.
   - `pc.game.save.set` writes with a plain `fopen("w")`, not atomically, so a power loss mid-write can wipe the high scores. `pc.config` already uses `sd_atomic`.
