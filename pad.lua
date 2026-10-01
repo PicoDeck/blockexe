@@ -34,7 +34,7 @@ else
 end
 
 -- The game's moves for this frame. Left, right and the soft drop repeat while
--- held, at most once per MOVE_DELAY_MS; rotate (Up) and the hard drop (A) are
+-- held, at most once per MOVE_DELAY_MS (a fresh press moves at once); rotate (Up) and the hard drop (A) are
 -- presses, so the gate must never swallow them.
 --   pad.poll(now_ms) -> { left, right, down, rotate, drop } booleans
 local MOVE_DELAY_MS = 120
@@ -42,9 +42,11 @@ local last_move_ms = 0
 
 function M.poll(now)
     local held, pressed = M.read()
+    local fresh = pressed & (M.LEFT | M.RIGHT | M.DOWN)
     local act = { rotate = pressed & M.UP ~= 0, drop = pressed & M.A ~= 0,
                   left = false, right = false, down = false }
-    if now - last_move_ms >= MOVE_DELAY_MS then
+    -- A fresh press moves at once, so a tap just after a step is not lost.
+    if fresh ~= 0 or now - last_move_ms >= MOVE_DELAY_MS then
         act.left = held & M.LEFT ~= 0
         act.right = not act.left and held & M.RIGHT ~= 0
         act.down = held & M.DOWN ~= 0

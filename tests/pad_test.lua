@@ -74,6 +74,21 @@ function T.poll_gates_moves_but_not_rotate_or_drop()
     eq(act.down, true)
 end
 
+function T.a_fresh_press_moves_inside_the_gate_and_restarts_it()
+    local fake = stub.new({ gamepad = true })
+    local pad = stub.fresh("pad")
+    local gp = fake.gp
+    gp.held, gp.pressed = gp.PAD_LEFT, gp.PAD_LEFT
+    eq(pad.poll(1000).left, true)
+    gp.held, gp.pressed = 0, 0
+    pad.poll(1030)
+    gp.held, gp.pressed = gp.PAD_RIGHT, gp.PAD_RIGHT      -- a tap 60 ms after the step
+    eq(pad.poll(1060).right, true, "the tap moves at once")
+    gp.pressed = 0                                        -- still held: repeats gated from 1060
+    eq(pad.poll(1100).right, false)
+    eq(pad.poll(1180).right, true)
+end
+
 function T.poll_follows_the_gamepad_not_the_keys()
     local fake = stub.new({ gamepad = true })
     local pad = stub.fresh("pad")
