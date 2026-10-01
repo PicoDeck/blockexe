@@ -1,16 +1,24 @@
 -- Block.exe
 -- by PicoDeck
 
--- Game state
-local game_state = "playing" -- "playing", "gameover"
+local pc = picocalc -- shorthand for easier access
+-- pc.perf.setTargetFPS(40)
+
+local theme = require("theme")
+local hs = require("highscores")
+local sfx = require("sfx")
+local title = require("title")
+local name_entry = require("name_entry")
+
+local C = theme.C
+local TETROMINOES = theme.TETROMINOES
+
+-- App state: "title", "playing", "gameover" or "name_entry"
+local state = "title"
 local score = 0
 local level = 1
 local lines_cleared = 0
-local pc = picocalc -- shorthand for easier access
-local theme = require("theme")
-local C = theme.C
-local TETROMINOES = theme.TETROMINOES
--- pc.perf.setTargetFPS(40)
+local topped_out = false
 
 -- Playfield dimensions
 local FIELD_WIDTH = 10
@@ -20,7 +28,6 @@ local BLOCK_SIZE = 14
 -- Center the playfield on the 320x320 screen
 local PLAYFIELD_X = math.floor((320 - (FIELD_WIDTH * BLOCK_SIZE)) / 2)
 local PLAYFIELD_Y = math.floor((320 - (FIELD_HEIGHT * BLOCK_SIZE)) / 2)
-
 
 -- Game variables
 local playfield = {}
@@ -38,11 +45,13 @@ local input_delay = 120 -- ms between moves
 
 -- Initialize a new game
 function init_game()
-    game_state = "playing"
+    topped_out = false
     score = 0
     level = 1
     lines_cleared = 0
     gravity_speed = 500
+    gravity_timer = 0
+    particles = {}
 
     -- Create empty playfield grid (must initialize rows so playfield[y][x] never hits a nil row)
     playfield = {}
@@ -65,7 +74,7 @@ function spawn_new_piece()
 
     -- Game over check
     if not is_valid_position(current_piece) then
-        game_state = "gameover"
+        topped_out = true
     end
 end
 
@@ -150,6 +159,8 @@ function clear_full_lines()
 
     local lines_cleared_this_turn = #cleared_rows
     if lines_cleared_this_turn > 0 then
+        sfx.on_clear(lines_cleared_this_turn)
+
         -- Create particle explosion centered on the cleared lines
         local total_y = 0
         for _, y_row in ipairs(cleared_rows) do
@@ -175,7 +186,9 @@ function clear_full_lines()
         local points = {40, 100, 300, 1200}
         score = score + (points[lines_cleared_this_turn] or 1200) * level
         lines_cleared = lines_cleared + lines_cleared_this_turn
+        local old_level = level
         level = math.floor(lines_cleared / 10) + 1
+        if level > old_level then sfx.on_level_up(level) end
         gravity_speed = 500 - (level - 1) * 40
         if gravity_speed < 50 then gravity_speed = 50 end
     end
@@ -193,12 +206,16 @@ function handle_input()
         current_piece.x = current_piece.x - 1
         if not is_valid_position(current_piece) then
             current_piece.x = current_piece.x + 1
+        else
+            sfx.on_move()
         end
         moved = true
     elseif buttons & pc.input.BTN_RIGHT ~= 0 then
         current_piece.x = current_piece.x + 1
         if not is_valid_position(current_piece) then
             current_piece.x = current_piece.x - 1
+        else
+            sfx.on_move()
         end
         moved = true
     end
@@ -215,6 +232,7 @@ function handle_input()
 
     local pressed = pc.input.getButtonsPressed()
     if pressed & pc.input.BTN_UP ~= 0 then -- Rotate
+        local old_rotation = current_piece.rotation
         current_piece.rotation = current_piece.rotation + 1
         if current_piece.rotation > #TETROMINOES[current_piece.shape_idx].rotations then
             current_piece.rotation = 1
@@ -232,6 +250,7 @@ function handle_input()
                 end
             end
         end
+        if current_piece.rotation ~= old_rotation then sfx.on_rotate() end
         moved = true
     end
 
@@ -241,6 +260,7 @@ function handle_input()
             score = score + 2 -- Small bonus for hard dropping
         end
         current_piece.y = current_piece.y - 1
+        sfx.on_hard_drop()
         lock_piece()
         moved = true
     end
@@ -250,7 +270,7 @@ end
 
 -- Update game logic (gravity)
 function update_game(delta_ms)
-    if game_state ~= "playing" then return end
+    if topped_out then return end
 
     gravity_timer = gravity_timer + delta_ms
     if gravity_timer >= gravity_speed then
@@ -258,6 +278,7 @@ function update_game(delta_ms)
         current_piece.y = current_piece.y + 1
         if not is_valid_position(current_piece) then
             current_piece.y = current_piece.y - 1
+            sfx.on_lock()
             lock_piece()
         end
     end
@@ -303,61 +324,125 @@ function draw_ui()
     end
 end
 
-function draw_gameover()
-    local text = "GAME OVER"
-    local width = pc.display.textWidth(text)
-    local x = math.floor((320 - width) / 2)
-    local y = math.floor(320 / 2) - 20
-    pc.display.drawText(x, y, text, C.GAMEOVER, C.BG)
+-- Settings (pc.config keys "music" and "sfx"; anything but "off" means on)
+local music_enabled = true
+local sfx_enabled = true
 
-    local restart_text = "Press ENTER to restart"
-    width = pc.display.textWidth(restart_text)
-    x = math.floor((320 - width) / 2)
-    pc.display.drawText(x, y + 20, restart_text, C.TEXT, C.BG)
+local function load_settings()
+    pc.config.load()
+    music_enabled = pc.config.get("music") ~= "off"
+    sfx_enabled = pc.config.get("sfx") ~= "off"
+end
+
+local function save_setting(key, on)
+    pc.config.set(key, on and "on" or "off")
+    if not pc.config.save() then pc.sys.log("settings: save failed") end
 end
 
 -- Music state
-local music_player = pc.sound.mp3player()
-local music_enabled = true
+local music = pc.sound.fileplayer()
+local music_loaded = false
+local music_started = false
+
+-- Starts, pauses or resumes the track to match music_enabled
+local function apply_music()
+    if not music_loaded then return end
+    if music_enabled then
+        if music_started then
+            music:resume()
+        else
+            music:play(0) -- 0 loops until stopped
+            music_started = true
+        end
+    elseif music_started then
+        music:pause()
+    end
+end
 
 -- Initialize music
 local function init_music()
-    local success, err = music_player:load(APP_DIR .. "/background01.mp3")
-    if success then
-        music_player:setLoop(true)
-        if music_enabled then
-            music_player:play()
-        end
-    else
-        pc.sys.log("Failed to load music: " .. tostring(err))
+    if not music then
+        pc.sys.log("Failed to load music: no file player")
+        return
     end
+    local success, err = music:load(APP_DIR .. "/assets/background01.qoa")
+    if not success then
+        pc.sys.log("Failed to load music: " .. tostring(err))
+        return
+    end
+    music:setVolume(60)
+    music_loaded = true
+    apply_music()
 end
+
+-- F10 menu callbacks run mid-frame, so they only set flags
+local pending_new_game = false
+local pending_music_toggle = false
+local pending_sfx_toggle = false
 
 -- Refresh menu items to update labels
 local function refresh_menu()
     pc.sys.clearMenuItems()
-    pc.sys.addMenuItem("New Game", function()
-        init_game()
-    end)
-    
-    local music_label = music_enabled and "Disable Music" or "Enable Music"
-    pc.sys.addMenuItem(music_label, function()
-        music_enabled = not music_enabled
-        if music_enabled then
-            music_player:resume()
-        else
-            music_player:pause()
-        end
-        refresh_menu()
-    end)
+    pc.sys.addMenuItem("New Game", function() pending_new_game = true end)
+    pc.sys.addMenuItem(music_enabled and "Disable Music" or "Enable Music",
+        function() pending_music_toggle = true end)
+    pc.sys.addMenuItem(sfx_enabled and "Disable Sound Effects" or "Enable Sound Effects",
+        function() pending_sfx_toggle = true end)
 end
 
--- Main game loop
-init_game()
+local function set_music(on)
+    music_enabled = on
+    apply_music()
+    save_setting("music", on)
+    refresh_menu()
+end
+
+local function set_sfx(on)
+    sfx_enabled = on
+    sfx.set_enabled(on)
+    save_setting("sfx", on)
+    refresh_menu()
+end
+
+-- Screens
+local title_entries = {}
+
+local function set_state(new_state)
+    state = new_state
+    pc.input.clearState()
+end
+
+local function start_game()
+    init_game()
+    set_state("playing")
+end
+
+local function go_title(flash_rank)
+    title_entries = hs.entries()
+    title.enter(flash_rank)
+    set_state("title")
+end
+
+local function end_game()
+    local rank = hs.qualifies(score)
+    sfx.on_game_over(rank ~= nil)
+    name_entry.enter(score, rank, hs.last_name())
+    set_state(rank and "name_entry" or "gameover")
+end
+
+-- Startup
+pc.graphics.setTransparentColor(0) -- a key left by another app would punch holes in the art
+load_settings()
+hs.load()
+sfx.load()
+sfx.set_enabled(sfx_enabled)
+title.load()
 init_music()
 refresh_menu()
+go_title(nil)
 local last_frame_time = pc.sys.getTimeMs()
 
+-- Main loop
 while true do
     pc.perf.beginFrame()
     pc.input.update()
@@ -366,36 +451,77 @@ while true do
     local delta = now - last_frame_time
     last_frame_time = now
 
+    if pending_music_toggle then
+        pending_music_toggle = false
+        set_music(not music_enabled)
+    end
+    if pending_sfx_toggle then
+        pending_sfx_toggle = false
+        set_sfx(not sfx_enabled)
+    end
+    if pending_new_game then
+        pending_new_game = false
+        start_game()
+    end
+
     -- Update logic
-    if game_state == "playing" then
-        handle_input()
-        update_game(delta)
-    elseif game_state == "gameover" then
-        local pressed = pc.input.getButtonsPressed()
-        if pressed & pc.input.BTN_ENTER ~= 0 then
-            init_game()
+    if state == "title" then
+        local action = title.update(delta)
+        if action == "start" then
+            sfx.ui("select")
+            start_game()
+        elseif action == "toggle_music" then
+            set_music(not music_enabled)
+            sfx.ui("select")
+        elseif action == "toggle_sfx" then
+            set_sfx(not sfx_enabled)
+            sfx.ui("select") -- silent when SFX was just turned off
+        elseif action == "quit" then
+            pc.sys.exit()
+        end
+    elseif state == "playing" then
+        if pc.input.getButtonsPressed() & pc.input.BTN_ESC ~= 0 then
+            sfx.ui("back")
+            go_title(nil) -- the game is discarded
+        else
+            handle_input()
+            update_game(delta)
+            if topped_out then end_game() end
+        end
+    else -- "gameover" or "name_entry"
+        local action, name = name_entry.update(now)
+        if action == "save" then
+            local rank = hs.insert(name, score)
+            sfx.ui("save")
+            go_title(rank)
+        elseif action == "skip" then
+            sfx.ui("back")
+            go_title(nil)
+        elseif action == "continue" then
+            sfx.ui("select")
+            go_title(nil)
         end
     end
 
     -- Drawing
-    pc.display.clear(C.BG)
-    draw_playfield()
-    if game_state == "playing" then
-        draw_piece(current_piece)
-    end
-    -- Update positions + draw all particles + compact dead ones — single C call
-    pc.graphics.updateDrawParticles(particles, delta / 1000)
-    draw_ui()
-
-    if game_state == "gameover" then
-        draw_gameover()
+    if state == "title" then
+        title.draw(title_entries, music_enabled, sfx_enabled)
+    else
+        pc.display.setFont(pc.display.FONT_6X8)
+        pc.display.clear(C.BG)
+        draw_playfield()
+        if state == "playing" then
+            draw_piece(current_piece)
+        end
+        -- Update positions + draw all particles + compact dead ones — single C call
+        pc.graphics.updateDrawParticles(particles, delta / 1000)
+        draw_ui()
+        if state ~= "playing" then
+            pc.display.applyEffect("darken", 96)
+            name_entry.draw()
+        end
     end
 
     pc.display.flush()
     pc.perf.endFrame()
-
-    -- Exit condition
-    if pc.input.getButtonsPressed() & pc.input.BTN_ESC ~= 0 then
-        pc.sys.exit()
-    end
 end
