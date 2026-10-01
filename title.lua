@@ -17,6 +17,25 @@ local LOGO_KEY = 0x07E0  -- pure green, never used in the logo itself
 local bg, logo
 local rain, pieces = {}, {}
 local selected = 1
+
+-- Table rows and menu labels, rebuilt only when what they show changes
+local text = { entries = nil, music = nil, sfx = nil, rows = {}, labels = {} }
+
+local function refresh_text(entries, music_on, sfx_on)
+    if entries ~= text.entries then
+        text.entries = entries
+        for i = 1, 3 do
+            local e = entries[i]
+            text.rows[i] = string.format("%d. %-8s  %06d", i, e and e.name or "---", e and e.score or 0)
+        end
+    end
+    if music_on ~= text.music or sfx_on ~= text.sfx then
+        text.music, text.sfx = music_on, sfx_on
+        local names = { "START", "MUSIC: " .. (music_on and "ON" or "OFF"),
+                        "SFX: " .. (sfx_on and "ON" or "OFF"), "QUIT" }
+        for i, name in ipairs(names) do text.labels[i] = { "  " .. name, "> " .. name } end
+    end
+end
 local flash_rank, flash_start = nil, 0
 
 -- A rain streak; `anywhere` scatters it over the screen instead of above it.
@@ -119,6 +138,8 @@ local function draw_pieces()
     end
 end
 
+-- entries is compared by identity: pass a new table when the scores change
+-- (hs.entries() returns a fresh copy).
 function M.draw(entries, music_on, sfx_on)
     local d = pc.display
     if bg then bg:draw(0, 0) else d.clear(C.BG) end
@@ -140,21 +161,18 @@ function M.draw(entries, music_on, sfx_on)
     d.drawRect(60, 110, 200, 80, C.BORDER)
     d.setFont(d.FONT_8X12)
     theme.centre("HIGH SCORES", 116, C.CYAN)
+    refresh_text(entries, music_on, sfx_on)
     local flash_on = ((pc.sys.getTimeMs() - flash_start) // FLASH_MS) % 2 == 0
     for i = 1, 3 do
-        local e = entries[i]
-        local row = string.format("%d. %-8s  %06d", i, e and e.name or "---", e and e.score or 0)
-        theme.centre(row, 118 + i * 18, (i == flash_rank and flash_on) and C.FLASH or C.TEXT)
+        theme.centre(text.rows[i], 118 + i * 18, (i == flash_rank and flash_on) and C.FLASH or C.TEXT)
     end
 
     -- Menu, on its own panel so it reads over the art
     d.fillRect(60, 208, 200, 76, C.PANEL)
     d.drawRect(60, 208, 200, 76, C.BORDER)
-    local labels = { "START", "MUSIC: " .. (music_on and "ON" or "OFF"),
-                     "SFX: " .. (sfx_on and "ON" or "OFF"), "QUIT" }
-    for i, label in ipairs(labels) do
+    for i, label in ipairs(text.labels) do
         local sel = i == selected
-        theme.centre((sel and "> " or "  ") .. label, 216 + (i - 1) * 16, sel and C.WHITE or C.DIM)
+        theme.centre(label[sel and 2 or 1], 216 + (i - 1) * 16, sel and C.WHITE or C.DIM)
     end
     d.setFont(d.FONT_6X8)
 end

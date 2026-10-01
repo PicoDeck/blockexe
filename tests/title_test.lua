@@ -131,6 +131,32 @@ function T.menu_sits_on_a_panel()
     eq(border, C.BORDER, "panel border around the menu")
 end
 
+function T.repeat_draws_do_not_rebuild_text()
+    local title = fresh()
+    local entries = { { name = "KEITH", score = 12400 } }
+    title.draw(entries, true, true)
+    local real_format, calls = string.format, 0
+    string.format = function(...) calls = calls + 1; return real_format(...) end
+    for _ = 1, 10 do title.draw(entries, true, true) end
+    string.format = real_format
+    eq(calls, 0, "string.format calls over 10 unchanged frames")
+end
+
+function T.text_follows_new_entries_settings_and_selection()
+    local title, fake = fresh()
+    title.draw({ { name = "KEITH", score = 12400 } }, true, true)
+    fake.texts = {}
+    title.draw({ { name = "ALEX", score = 500 } }, false, true)
+    press(title, fake, picocalc.input.BTN_DOWN)
+    title.draw({ { name = "ALEX", score = 500 } }, false, true)
+    local texts = {}
+    for _, t in ipairs(fake.texts) do texts[t.text] = true end
+    assert(texts["1. ALEX      000500"], "new entries are drawn")
+    assert(texts["  MUSIC: OFF"], "a changed setting is drawn")
+    assert(texts["> MUSIC: OFF"], "the selection marker moves")
+    assert(texts["  START"], "START loses the marker")
+end
+
 function T.animation_runs_for_a_minute()
     local title = fresh()
     for _ = 1, 3600 do title.update(16) end
