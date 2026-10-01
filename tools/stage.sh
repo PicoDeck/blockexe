@@ -5,7 +5,7 @@ set -e
 cd "$(dirname "$0")/.."
 out="${1:-build/stage}"
 # Add a new module here as well as in main.lua's requires.
-files="app.json icon.png main.lua theme.lua highscores.lua sfx.lua title.lua name_entry.lua"
+files="app.json icon.png main.lua theme.lua highscores.lua sfx.lua title.lua name_entry.lua pad.lua"
 for f in $files; do
     if [ ! -f "$f" ]; then
         echo "stage.sh: missing $f" >&2

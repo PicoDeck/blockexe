@@ -10,13 +10,28 @@ It has a title screen with a top-3 high-score table and synthwave sound effects.
 block.exe is available on the [PicoDeck App Store](https://store.picodeck.net). Open the
 Store app on your PicoCalc and install it from there.
 
+## Controls
+
+| Action | Button | Default key |
+|--------|--------|-------------|
+| Move left / right, soft drop | D-pad | arrow keys |
+| Rotate | D-pad up | Up |
+| Hard drop | A | F4 |
+| Menus: move, confirm | D-pad, A | arrows, F4 or Enter |
+| Back to the title, quit | | Esc |
+
+The game reads the gamepad, so Settings > Controls in the system menu rebinds the buttons.
+Enter still confirms the title menu and the game-over screen, and typing a high-score name stays
+on the keyboard. On firmware without the gamepad API it reads the plain keys it always did, with Enter
+as the hard drop.
+
 ## Build
 
 This is a Lua app; there's nothing to compile. `sh tools/stage.sh` copies the files that ship
 into `build/stage/`:
 
 - `app.json` and `icon.png`
-- `main.lua`, `theme.lua`, `highscores.lua`, `sfx.lua`, `title.lua` and `name_entry.lua`
+- `main.lua`, `theme.lua`, `highscores.lua`, `sfx.lua`, `title.lua`, `name_entry.lua` and `pad.lua`
 - `assets/`: the title art, the QOA music and `assets/sfx/`
 
 Copy that folder to `/apps/blockexe/` on the SD card, or install through the App Store.

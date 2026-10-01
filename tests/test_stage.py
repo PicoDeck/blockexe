@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-MODULES = ["main.lua", "theme.lua", "highscores.lua", "sfx.lua", "title.lua", "name_entry.lua"]
+MODULES = ["main.lua", "theme.lua", "highscores.lua", "sfx.lua", "title.lua", "name_entry.lua", "pad.lua"]
 
 
 class StageTest(unittest.TestCase):

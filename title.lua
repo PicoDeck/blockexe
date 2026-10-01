@@ -3,6 +3,7 @@
 local pc = picocalc
 local theme = require("theme")
 local sfx = require("sfx")
+local pad = require("pad")
 local C, TETROMINOES = theme.C, theme.TETROMINOES
 
 local M = {}
@@ -103,16 +104,16 @@ function M.update(dt_ms)
         ev = pc.input.pollEvent()
     end
 
-    local pressed = pc.input.getButtonsPressed()
-    if pressed & pc.input.BTN_ESC ~= 0 then return "quit" end
-    if pressed & pc.input.BTN_UP ~= 0 then
+    if pc.input.getButtonsPressed() & pc.input.BTN_ESC ~= 0 then return "quit" end
+    local _, pressed = pad.read()
+    if pressed & pad.UP ~= 0 then
         selected = (selected - 2) % #ITEMS + 1
         sfx.ui("move")
-    elseif pressed & pc.input.BTN_DOWN ~= 0 then
+    elseif pressed & pad.DOWN ~= 0 then
         selected = selected % #ITEMS + 1
         sfx.ui("move")
     end
-    if pressed & pc.input.BTN_ENTER ~= 0 then return ITEMS[selected] end
+    if pad.confirmed(pressed) then return ITEMS[selected] end
     return nil
 end
 

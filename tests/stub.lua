@@ -24,6 +24,7 @@ function stub.new()
         saves = {},       -- pc.game.save store, by name
         events = {},      -- queue that pc.input.pollEvent pops
         pressed = 0,      -- what pc.input.getButtonsPressed() returns
+        held = 0,         -- what pc.input.getButtons() returns
         clears = 0,       -- pc.input.clearState() calls
         files = {},       -- WAV paths pc.sound.sample can load
         images = {},      -- image paths pc.graphics.image.load can load
@@ -43,6 +44,7 @@ function stub.new()
     pc.input = {
         BTN_UP = 1, BTN_DOWN = 2, BTN_LEFT = 4, BTN_RIGHT = 8,
         BTN_ENTER = 16, BTN_ESC = 32, BTN_BACKSPACE = 64,
+        getButtons = function() return fake.held end,
         getButtonsPressed = function() return fake.pressed end,
         pollEvent = function() return table.remove(fake.events, 1) end,
         clearState = function()
@@ -121,7 +123,7 @@ function stub.new()
     return fake
 end
 
-local APP_MODULES = { "theme", "highscores", "sfx", "title", "name_entry" }
+local APP_MODULES = { "theme", "highscores", "sfx", "title", "name_entry", "pad" }
 
 -- Re-requires an app module (and the app modules it requires) against the
 -- current fake. `preload` maps module names to stand-ins, e.g. a fake sfx.

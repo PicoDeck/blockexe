@@ -9,6 +9,7 @@ local hs = require("highscores")
 local sfx = require("sfx")
 local title = require("title")
 local name_entry = require("name_entry")
+local pad = require("pad")
 
 local C = theme.C
 local TETROMINOES = theme.TETROMINOES
@@ -199,10 +200,10 @@ function handle_input()
     local now = pc.sys.getTimeMs()
     if now - last_input_time < input_delay then return end
 
-    local buttons = pc.input.getButtons()
+    local buttons, pressed = pad.read()
     local moved = false
 
-    if buttons & pc.input.BTN_LEFT ~= 0 then
+    if buttons & pad.LEFT ~= 0 then
         current_piece.x = current_piece.x - 1
         if not is_valid_position(current_piece) then
             current_piece.x = current_piece.x + 1
@@ -210,7 +211,7 @@ function handle_input()
             sfx.on_move()
         end
         moved = true
-    elseif buttons & pc.input.BTN_RIGHT ~= 0 then
+    elseif buttons & pad.RIGHT ~= 0 then
         current_piece.x = current_piece.x + 1
         if not is_valid_position(current_piece) then
             current_piece.x = current_piece.x - 1
@@ -220,7 +221,7 @@ function handle_input()
         moved = true
     end
 
-    if buttons & pc.input.BTN_DOWN ~= 0 then
+    if buttons & pad.DOWN ~= 0 then
         current_piece.y = current_piece.y + 1
         if not is_valid_position(current_piece) then
             current_piece.y = current_piece.y - 1
@@ -230,8 +231,7 @@ function handle_input()
         moved = true
     end
 
-    local pressed = pc.input.getButtonsPressed()
-    if pressed & pc.input.BTN_UP ~= 0 then -- Rotate
+    if pressed & pad.UP ~= 0 then -- Rotate
         local old_rotation = current_piece.rotation
         current_piece.rotation = current_piece.rotation + 1
         if current_piece.rotation > #TETROMINOES[current_piece.shape_idx].rotations then
@@ -254,7 +254,7 @@ function handle_input()
         moved = true
     end
 
-    if pressed & pc.input.BTN_ENTER ~= 0 then -- Hard drop
+    if pressed & pad.A ~= 0 then -- Hard drop
         while is_valid_position(current_piece) do
             current_piece.y = current_piece.y + 1
             score = score + 2 -- Small bonus for hard dropping

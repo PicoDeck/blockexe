@@ -2,12 +2,13 @@
 local pc = picocalc
 local theme = require("theme")
 local sfx = require("sfx")
+local pad = require("pad")
 local hs = require("highscores")
 local C = theme.C
 
 local M = {}
 
-local LOCK_MS = 400   -- ignore keys this long, so a hard drop's Enter can't confirm
+local LOCK_MS = 400   -- ignore keys this long, so a hard drop's key can't confirm
 local BLINK_MS = 500
 
 local score, rank = 0, nil
@@ -33,10 +34,10 @@ function M.update(now_ms)
         return nil
     end
 
-    local pressed = pc.input.getButtonsPressed()
-    if pressed & pc.input.BTN_ESC ~= 0 then return "skip" end
+    if pc.input.getButtonsPressed() & pc.input.BTN_ESC ~= 0 then return "skip" end
     if not rank then
-        if pressed & pc.input.BTN_ENTER ~= 0 then return "continue" end
+        local _, pressed = pad.read()
+        if pad.confirmed(pressed) then return "continue" end
         return nil
     end
 
@@ -84,7 +85,7 @@ function M.draw()
         theme.centre("ENTER SAVE   ESC SKIP", y + 98, C.DIM)
     else
         theme.centre(string.format("%06d", score), y + 34, C.TEXT)
-        theme.centre("ENTER CONTINUE", y + 58, C.DIM)
+        theme.centre(pad.label(pad.A) .. " CONTINUE", y + 58, C.DIM)
     end
     d.setFont(d.FONT_6X8)
 end
