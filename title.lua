@@ -147,7 +147,9 @@ function M.draw(entries, music_on, sfx_on)
         theme.centre(row, 118 + i * 18, (i == flash_rank and flash_on) and C.FLASH or C.TEXT)
     end
 
-    -- Menu
+    -- Menu, on its own panel so it reads over the art
+    d.fillRect(60, 208, 200, 76, C.PANEL)
+    d.drawRect(60, 208, 200, 76, C.BORDER)
     local labels = { "START", "MUSIC: " .. (music_on and "ON" or "OFF"),
                      "SFX: " .. (sfx_on and "ON" or "OFF"), "QUIT" }
     for i, label in ipairs(labels) do

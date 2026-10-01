@@ -31,6 +31,7 @@ function stub.new()
         max_players = 8,
         played = {},      -- { path, rate, volume, player } per play()
         texts = {},       -- { x, y, text, fg, bg } per drawText
+        rects = {},       -- { kind = "fill"|"draw", x, y, w, h, colour } per fillRect/drawRect
         drawn = {},       -- { path, x, y, key } per image draw
     }
 
@@ -93,6 +94,12 @@ function stub.new()
         textWidth = function(s) return #s * 8 end,
         getFontWidth = function() return 8 end,
         getFontHeight = function() return 12 end,
+        fillRect = function(x, y, w, h, colour)
+            fake.rects[#fake.rects + 1] = { kind = "fill", x = x, y = y, w = w, h = h, colour = colour }
+        end,
+        drawRect = function(x, y, w, h, colour)
+            fake.rects[#fake.rects + 1] = { kind = "draw", x = x, y = y, w = w, h = h, colour = colour }
+        end,
         drawText = function(x, y, text, fg, bg)
             fake.texts[#fake.texts + 1] = { x = x, y = y, text = text, fg = fg, bg = bg }
             return #text * 8

@@ -213,6 +213,7 @@ Drawn back to front every frame:
    - The row saved in the last game switches between `C.FLASH` and `C.TEXT` every 300 ms until the next key press. `title.update` reads `pollEvent()` until it returns nil each frame, and any `"down"` event counts.
 6. **Menu:**
    - Covers y=216–280 in `FONT_8X12`, 16 px per row, centred: *START*, *MUSIC: ON|OFF*, *SFX: ON|OFF*, *QUIT*.
+   - It sits on its own panel, x=60–260 and y=208–284, with a `C.PANEL` fill and a `C.BORDER` border, so it stays readable over the art. The user added this on 2026-10-02 after seeing the background mockups.
    - Up and Down move the selection, wrap around, and play `sfx.ui("move")`. The selected item has a `>` in front and is drawn in `C.WHITE`; the others use `C.DIM`.
    - Enter chooses the selected item. Esc returns `"quit"`.
 7. **Fonts:** the font is set explicitly with `pc.display.setFont` before each block of text, because the font setting is global. It's set back to `FONT_6X8` before the game draws.

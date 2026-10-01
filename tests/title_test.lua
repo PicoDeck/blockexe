@@ -117,6 +117,20 @@ function T.score_rows_and_menu_labels()
     assert(texts["  SFX: ON"], "sfx label")
 end
 
+function T.menu_sits_on_a_panel()
+    local title, fake = fresh()
+    local C = require("theme").C
+    title.draw({}, true, true)
+    local fill, border
+    for _, r in ipairs(fake.rects) do
+        if r.x == 60 and r.y == 208 and r.w == 200 and r.h == 76 then
+            if r.kind == "fill" then fill = r.colour else border = r.colour end
+        end
+    end
+    eq(fill, C.PANEL, "panel fill behind the menu")
+    eq(border, C.BORDER, "panel border around the menu")
+end
+
 function T.animation_runs_for_a_minute()
     local title = fresh()
     for _ = 1, 3600 do title.update(16) end
