@@ -13,8 +13,13 @@ Store app on your PicoCalc and install it from there.
 ## Build
 
 This is a Lua app; there's nothing to compile. `sh tools/stage.sh` copies the files that ship
-(`app.json`, `icon.png`, the `.lua` modules and `assets/`) into `build/stage/`; copy that
-folder to `/apps/blockexe/` on the SD card, or install through the App Store.
+into `build/stage/`:
+
+- `app.json` and `icon.png`
+- `main.lua`, `theme.lua`, `highscores.lua`, `sfx.lua`, `title.lua` and `name_entry.lua`
+- `assets/`: the title art, the QOA music and `assets/sfx/`
+
+Copy that folder to `/apps/blockexe/` on the SD card, or install through the App Store.
 
 It needs PicoDeck 0.5.0 or later.
 
