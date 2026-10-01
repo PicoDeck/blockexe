@@ -1,2 +1,4 @@
 *.zip
 inspiration.jpg
+build/
+tools/sfx_src/candidates/

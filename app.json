@@ -5,6 +5,6 @@
     "author": "PicoDeck",
     "version": "1.0.5",
     "category": "games",
-    "min_firmware": "0.1.0",
+    "min_firmware": "0.5.0",
     "homepage": "https://github.com/PicoDeck/blockexe"
 }
