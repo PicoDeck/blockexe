@@ -22,7 +22,7 @@ The handover was written before the rename and before a full check of the firmwa
 |---|---|---|---|
 | 1 | `min_firmware` stays `0.1.0`, to be checked | `min_firmware: "0.5.0"` | QOA playback in the FilePlayer (row 5), native `require`, and MP3/sample mixing on hardware all arrived in 0.5.0. Per-app save files and `pc.input.pollEvent` arrived in 0.2.0; on 0.1.0, `pc.game.save` writes to a `/saves/` folder that every app shares. |
 | 2 | Read every pending character with `getChar()` each frame | Read characters with `pc.input.pollEvent()` | `getChar()` returns the same character until the next `update()`, so looping over it never ends. `pollEvent()` returns each queued event once, in order. |
-| 3 | `"\b"` **or** `BTN_BACKSPACE` deletes | Backspace and Enter come only from character events. Esc comes from `BTN_ESC`. | One key press produces both a character and a button edge, so reading both would delete two characters. |
+| 3 | `"\b"` **or** `BTN_BACKSPACE` deletes | Letters come only from `"char"` events. Enter and Backspace come only from `"down"` events (`ev.button == BTN_ENTER` / `BTN_BACKSPACE`), and the `"\n"` and `"\b"` characters are ignored. Esc comes from `BTN_ESC`. | One key press produces both a character and a key-down event, so reading both would delete two characters. The simulator's MCP `keypress enter` and `keypress backspace` send no character event, so reading Enter and Backspace from key-down events works in both places. |
 | 4 | Colour key 0 means "no key" | 0 means "use the global key". The app calls `pc.graphics.setTransparentColor(0)` at startup. | The global key isn't reset between apps. A key left by the previous app could punch holes in the background. |
 | 5 | `background01.mp3` "keeps looping, as it does today" through the MP3 player | The same track converted to QOA (`assets/background01.qoa`) and played through `pc.sound.fileplayer()` with `play(0)` | The PicoDeck docs measured 22.05 kHz MP3 making every frame 1.24× (mono) to 2.1× (44.1 kHz stereo) slower. QOA costs 2.4–5.3%. The QOA file is only 11% bigger (2.39 MB against 2.15 MB). This also fixes a bug: `play()` with no argument plays the MP3 once, so the music currently stops after one play. |
 | 5a | The `require` shim from nonogram | The firmware's native `require` | Built in since 0.5.0, which is now the minimum. The shim would be dead code. |
@@ -203,7 +203,7 @@ Drawn back to front every frame:
    - Drawn with `pc.graphics.fillBorderedRect(x, y, 8, 8, color, C.BG)`.
    - A piece that leaves the bottom starts again above the top at a random x.
 4. **Logo:**
-   - `logo.png`, centred at y=18, drawn with `logo:setTransparentColor(0x07E0)`.
+   - `logo.png`, centred at y=18 using the width from `logo:getSize()`, drawn with `logo:setTransparentColor(0x07E0)`.
    - Underneath: *A CYBERPUNK TETRIMINO GAME* in `FONT_6X8`.
    - If the logo failed to load, draw `BLOCK.EXE` in `FONT_8X12` instead.
 5. **Score panel:**
@@ -231,13 +231,13 @@ Drawn back to front every frame:
 - **Input lock:**
   - `enter` calls `clearState()` and ignores all input for 400 ms. When the lock ends, it calls `clearState()` again.
   - This stops the hard drop's Enter, and any key-mashing, from confirming or skipping the screen.
-- **Typing** (name entry only): each frame, read `pollEvent()` until it returns nil, and act on `"char"` events.
-  - An allowed character goes through `hs.normalize_char`. It's appended, with `sfx.ui("key")`, if the name has fewer than 8 characters.
-  - `"\b"` deletes the last character with `sfx.ui("delete")`. Nothing happens if the name is empty.
-  - `"\n"` returns `"save", name` if `hs.clean_name(name)` isn't empty; otherwise nothing happens.
-  - Everything else is ignored. The OS provides key repeat.
-- **Esc:** `BTN_ESC` from `getButtonsPressed()` returns `"skip"` on the name-entry screen and `"continue"` on the plain game-over screen.
-- **Plain game-over screen:** `BTN_ENTER` from `getButtonsPressed()` also returns `"continue"`. This screen reads no characters.
+- **Typing** (name entry only): each frame, read `pollEvent()` until it returns nil.
+  - A `"char"` event whose character passes `hs.normalize_char` is appended, with `sfx.ui("key")`, if the name has fewer than 8 characters. The `"\n"` and `"\b"` characters are ignored.
+  - A `"down"` event with `button == BTN_BACKSPACE` deletes the last character with `sfx.ui("delete")`. Nothing happens if the name is empty. A held key's repeats arrive as more `"down"` events.
+  - A `"down"` event with `button == BTN_ENTER` returns `"save", name` if `hs.clean_name(name)` isn't empty; otherwise nothing happens.
+  - Everything else is ignored.
+- **Esc:** `BTN_ESC` from `getButtonsPressed()` returns `"skip"` on both screens.
+- **Plain game-over screen:** `BTN_ENTER` from `getButtonsPressed()` returns `"continue"`. This screen reads no characters.
 - **Saving:** `main.lua` calls `hs.insert(name, score)`, then `sfx.ui("save")`, then `title.enter(rank)`.
 
 ## Where the sounds are triggered
@@ -250,8 +250,8 @@ Sounds for input a screen handles itself are played by that screen (`title.lua`,
   - `"quit"` → exit, with no sound, because exiting would cut it off.
 - **F10 changes** make no sound.
 - **Going back:**
-  - Esc during a game, or a skip on name entry → `sfx.ui("back")`.
-  - A plain game over closed with Esc → `sfx.ui("back")`; closed with Enter → `sfx.ui("select")`.
+  - Esc during a game, or `"skip"` from either game-over screen → `sfx.ui("back")`.
+  - `"continue"` (Enter on the plain game-over screen) → `sfx.ui("select")`.
 - **Game events, in the existing game code:**
   - `on_move()` when a left or right move changes `x`.
   - `on_rotate()` when the rotation (after wall kicks) differs from before.
@@ -275,7 +275,7 @@ Sounds for input a screen handles itself are played by that screen (`title.lua`,
 **Candidates.**
 - Up to 10 per sound, split between the two generators and written from the prompt directions below.
 - A sound shorter than a generator's minimum length is generated at that minimum, then trimmed.
-- Candidates stay out of git, in the session scratchpad.
+- Candidates stay out of git, in `tools/sfx_src/candidates/` (gitignored), so they're easy to play from the repo.
 
 **Choosing.** The user listens to each sound's candidates and picks one. Candidates aren't tuned to the music's key, so they're judged against the music.
 
