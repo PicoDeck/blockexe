@@ -4,11 +4,17 @@
 set -e
 cd "$(dirname "$0")/.."
 out="${1:-build/stage}"
+# Add a new module here as well as in main.lua's requires.
+files="app.json icon.png main.lua theme.lua highscores.lua sfx.lua title.lua name_entry.lua"
+for f in $files; do
+    if [ ! -f "$f" ]; then
+        echo "stage.sh: missing $f" >&2
+        exit 1
+    fi
+done
 rm -rf "$out"
 mkdir -p "$out"
-cp app.json icon.png ./*.lua "$out"/
-# The MP3 ships only while main.lua still plays it.
-if grep -q 'background01.mp3' main.lua; then cp background01.mp3 "$out"/; fi
+cp $files "$out"/
 if [ -d assets ]; then cp -r assets "$out"/; fi
 echo "staged into $out:"
 (cd "$out" && find . -type f | sort)
